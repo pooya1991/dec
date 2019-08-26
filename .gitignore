@@ -34,3 +34,13 @@ vignettes/*.pdf
 
 # Shiny token, see https://shiny.rstudio.com/articles/shinyapps.html
 rsconnect/
+
+venv/
+
+dia_15b\.ms1
+
+siren\.Rproj
+
+15b_scannums\.txt
+
+15b_precursorprofiles\.txt
