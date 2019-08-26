@@ -82,7 +82,7 @@ clusters_to_features <- function(clusters, maxcharge, mass_accuracy) {
 				if (clust_next$maxmz * (1 + mass_accuracy) < isop$minmz) next()
 				if (isop$maxmz * (1 + mass_accuracy) < clust_next$minmz) break()
 				# There is a match. Make this feature and add it to a list
-				features[[(i - 1) * maxcharge + isop$charge]] <- list(
+				features[[i * maxcharge - isop$charge + 1]] <- list(
 					charge = isop$charge,
 					minmz  = clust_curr$minmz * (1 - mass_accuracy),
 					maxmz  = clust_curr$maxmz * (1 + mass_accuracy)
