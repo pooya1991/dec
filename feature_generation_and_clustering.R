@@ -117,7 +117,7 @@ generate_theoretical_clusts <- function(features, isopeaks) {
 	bind_rows(clusts, .id = "id") %>% mutate(id = as.integer(id))
 }
 
-generate_outputs <- function(clusts_theo, clusts_obs, features) {
+generate_outputs <- function(clusts_theo, clusts_obs) {
 	df <- clusts_obs %>%
 		tibble::add_column(id = 0L, .before = TRUE) %>%
 		bind_rows(clusts_theo) %>%
