@@ -62,7 +62,7 @@ peaklist_to_clusters <- function(peaks_df, mass_accuracy, .sort = FALSE) {
 		}
 	}
 
-	compact(clusters) %>% map(map_at, .at = "inetnsity", sum) %>% bind_rows()
+	compact(clusters) %>% map(map_at, .at = "intensity", sum) %>% bind_rows()
 }
 
 clusters_to_features <- function(clusters, maxcharge, mass_accuracy) {
@@ -137,6 +137,8 @@ generate_outputs <- function(clusts_theo, clusts_obs) {
 		with(Matrix::sparseMatrix(i = row_num, j = id, x = intensity, dims = c(n, max(id))))
 
 	Y <- filter(df, id == 0L) %>%
+		group_by(row_num) %>%
+		summarise(intensity = sum(intensity)) %>%
 		with(Matrix::sparseVector(x = intensity, i = row_num, length = n))
 
 	footprints <- df %>% filter(id > 0) %>%
