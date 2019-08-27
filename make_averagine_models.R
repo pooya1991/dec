@@ -4,19 +4,26 @@ get_elemental_composition <- function(features) {
     averagine <- c(C = 4.9384, H = 7.7583, N = 1.3577, O = 1.4773, S = 0.0417)
     # Mass of monoisotopic averagine residue
     amass <- sum(masses * averagine)
-    features %>%
+    df <- features %>%
         mutate(meanmz = (minmz + maxmz) / 2,
                residumass = (meanmz - masses["H"]) * charge,
                aunits = residumass / amass,
                acomp = map(aunits, ~ averagine * .x)
-        ) %>% pull(acomp) %>%
-        map(~as.integer(round(.x))) %>%
-        map(set_names, names(masses))
+        )
+
+    acomp <- map(df$acomp, ~as.integer(round(.x))) %>% do.call(what = rbind)
+    colnames(acomp) <- names(masses)
+
+    averagine_mass <- apply(acomp, 1, function(x) sum(x * masses))
+    numH <- as.integer((df$residumass - averagine_mass) / masses["H"])
+    acomp[, "H"] <- acomp[, "H"] + numH
+    acomp
 }
 
 run_computems1_on_features <- function(features) {
     comp <- get_elemental_composition(features)
-    comp_str <- map_chr(comp, ~paste0(names(.x), .x, collapse = "")) %>%
+    elements <- colnames(comp)
+    comp_str <- apply(comp, 1, function(x) paste0(elements, x, collapse = "")) %>%
         paste(features$charge, sep = "\t")
 
     ffile <- tempfile()

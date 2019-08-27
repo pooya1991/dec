@@ -1,5 +1,5 @@
 read_ms1 <- function(ms1_file) {
-	ms1_file <- readLines("15c.ms1")
+	ms1_file <- readLines(ms1_file)
 	ms1_file <- stringr::str_subset(ms1_file, "^(D|H|I|Z)", negate = TRUE)
 	split_scan <- stringr::str_detect(ms1_file, "^S") %>% cumsum()
 	peaks_dfs <- split(ms1_file, split_scan) %>%
