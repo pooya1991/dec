@@ -143,13 +143,16 @@ generate_outputs <- function(clusts_theo, clusts_obs) {
 
 	footprints <- df %>% filter(id > 0) %>%
 		select(id, row_num) %>%
+		distinct() %>%
 		unstack(row_num ~ id) %>%
-		map(`[`, 1:4)
+		map(`[`, 1:4) %>%
+		do.call(what = rbind)
 
-	idx_ord <- transpose(footprints) %>% map(unlist) %>% do.call(what = order)
+	footprints[is.na(footprints)] <- 0L
+	idx_ord <- apply(footprints, 2, list) %>% flatten %>% do.call(what = order)
 	to_preserve <- rep(TRUE, length(idx_ord))
 	for (i in 2:length(idx_ord)) {
-		if (identical(footprints[[idx_ord[i]]], footprints[[idx_ord[i - 1]]])) {
+		if (identical(footprints[idx_ord[i], ], footprints[idx_ord[i - 1], ])) {
 			to_preserve[i] <- FALSE
 		}
 	}
