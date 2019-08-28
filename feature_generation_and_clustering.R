@@ -35,11 +35,9 @@ delete_unduplicated_peaklist <- function(peaks_dfs, noisetol) {
 	map2(peaks_dfs, idx_unduplicated, ~filter(.x, .y))
 }
 
-peaklist_to_clusters <- function(peaks_df, mass_accuracy, .sort = FALSE) {
-	if (.sort == TRUE) {
-		peaks_df <- arrange(peaks_df, mz)
-	}
-
+peaklist_to_clusters <- function(peaks_df, mass_accuracy, .fun = max) {
+	.fun <- match.fun(.fun)
+	peaks_df <- arrange(peaks_df, mz)
 	peaks_list <- transpose(peaks_df)
 	clusters <- vector("list", length(peaks_list))
 	clusters[[1]] <- list(
@@ -62,7 +60,7 @@ peaklist_to_clusters <- function(peaks_df, mass_accuracy, .sort = FALSE) {
 		}
 	}
 
-	compact(clusters) %>% map(map_at, .at = "intensity", sum) %>% bind_rows()
+	compact(clusters) %>% map(map_at, .at = "intensity", .fun) %>% bind_rows()
 }
 
 clusters_to_features <- function(clusters, maxcharge, mass_accuracy) {
