@@ -115,7 +115,8 @@ generate_theoretical_clusts <- function(features, isopeaks) {
 	bind_rows(clusts, .id = "id") %>% mutate(id = as.integer(id))
 }
 
-generate_outputs <- function(clusts_theo, clusts_obs) {
+generate_outputs <- function(clusts_theo, clusts_obs, .fun = sum) {
+	.fun <- match.fun(.fun)
 	df <- clusts_obs %>%
 		tibble::add_column(id = 0L, .before = TRUE) %>%
 		bind_rows(clusts_theo) %>%
@@ -132,6 +133,8 @@ generate_outputs <- function(clusts_theo, clusts_obs) {
 	binbounds <- distinct(df[c("minmz", "maxmz")])
 	n <- nrow(binbounds)
 	X <- filter(df, id > 0) %>%
+		group_by(id, row_num) %>%
+		summarise(intensity = .fun(intensity)) %>%
 		with(Matrix::sparseMatrix(i = row_num, j = id, x = intensity, dims = c(n, max(id))))
 
 	Y <- filter(df, id == 0L) %>%
