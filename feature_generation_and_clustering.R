@@ -130,7 +130,7 @@ generate_outputs <- function(clusts_theo, clusts_obs, .fun = sum) {
 		ungroup() %>%
 		select(id, row_num, minmz, maxmz, intensity)
 
-	binbounds <- distinct(df[c("minmz", "maxmz")])
+	binbounds <- distinct(df[c("minmz", "maxmz")]) %>% as.matrix()
 	n <- nrow(binbounds)
 	X <- filter(df, id > 0) %>%
 		group_by(id, row_num) %>%

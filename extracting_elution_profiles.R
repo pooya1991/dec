@@ -1,72 +1,34 @@
 library(tidyverse)
-source("matrix_operations.R")
+source("feature_generation_and_clustering.R")
+source("make_averagine_models.R")
 source("regressors.R")
 source("profile_extraction_functions.R")
 
 # set parameters ----------------------------------------------------------
 
-idx_file <- 1
-scan_num <- "0"
-ms1_file <- "15c.ms1"
-dir_data <- str_replace(ms1_file, ".ms1$", "_ms1_sparsebinned_singlescans_tannotated/")
+noisetol <- 5e-3
 mass_accuracy <- 6e-6
+maxcharge <- 6L
+ms1_file <- "15c.ms1"
 
-# read matrices from file -------------------------------------------------
+# generate features and matrices-------------------------------------------
 
-xfiles <- list.files(dir_data) %>%
-	stringr::str_subset("x\\.txt")
+peaks_dfs <- read_ms1(ms1_file)
+peaks_dfs <- delete_unduplicated_peaklist(peaks_dfs, noisetol)
+clusters_list <- map(peaks_dfs, peaklist_to_clusters, mass_accuracy, .fun = sum)
+features_list <- map(clusters_list, clusters_to_features, maxcharge, mass_accuracy)
+isopeaks_list <- map(features_list, run_computems1_on_features)
+clusters_theo_list <- map2(features_list, isopeaks_list, generate_theoretical_clusts)
+outputs_list <- map2(clusters_theo_list, clusters_list, generate_outputs, .fun = sum)
+features_idx_list <- map(outputs_list, "features_idx")
+features_list <- map2(features_list, features_idx_list, ~.x[.y, ])
+X_list <- map(outputs_list, "X")
+Y_list <- map(outputs_list, "Y")
+binbounds_list <- map(outputs_list, "binbounds")
 
-idx_ordered <- stringr::str_extract(xfiles, "^\\d+") %>%
-	as.integer() %>%
-	order()
-
-xfiles <- xfiles[idx_ordered]
-yfiles <- stringr::str_replace(xfiles, "x", "y")
-annfiles <- stringr::str_replace(xfiles, "x", "annfile")
-
-input_files <- purrr::pmap(list(xfiles, yfiles, annfiles), c) %>%
-	purrr::map(~ paste0(dir_data, .x))
-
-subX_list <- list()
-subY_list <- list()
-sub_binbounds_list <- list()
-sub_features_list <- list()
-
-for (i in seq_along(input_files)) {
-	x <- readLines(input_files[[i]][1])
-	y <- readLines(input_files[[i]][2])
-	sub_features_df <- read_tsv(input_files[[i]][3], col_names = c("scan", "minmz", "maxmz", "charge"),
-								skip = 1, col_types = "iddi")
-
-	scans <- get_scannum(x)
-	unique_scans <- unique(scans)
-	binbounds <- get_binbounds(x)
-	X <- sparse_to_regular(x)
-	Y <- sparse_to_regular(y)
-	subX <- vector("list", length(unique_scans)) %>% set_names(unique_scans)
-	subY <- vector("list", length(unique_scans)) %>% set_names(unique_scans)
-	sub_binbounds <- vector("list", length(unique_scans)) %>% set_names(unique_scans)
-	sub_features <- vector("list", length(unique_scans)) %>% set_names(unique_scans)
-
-	for (j in unique_scans) {
-		idx_rows <- scans[scans == j] %>% names() %>% as.integer()
-		subX[[as.character(j)]] <- X[idx_rows, ]
-		idx_nonzero_cols <- colSums(subX[[as.character(j)]]) > 0
-		subX[[as.character(j)]] <- subX[[as.character(j)]][, idx_nonzero_cols]
-		subY[[as.character(j)]] <- Y[idx_rows, , drop = FALSE]
-		sub_binbounds[[as.character(j)]] <- binbounds[rownames(binbounds) %in% idx_rows, ]
-		sub_features[[as.character(j)]] <- filter(sub_features_df, idx_nonzero_cols)
-	}
-
-	subX_list <- c(subX_list, subX)
-	subY_list <- c(subY_list, subY)
-	sub_binbounds_list <- c(sub_binbounds_list, sub_binbounds)
-	sub_features_list <- c(sub_features_list, sub_features)
-}
-
-sub_features_list <- map(sub_features_list, ~mutate(.x, meanmz = ((minmz + maxmz) / 2)))
-sub_features_list <- map2(
-	sub_features_list, subX_list,
+features_list <- map(features_list, ~mutate(.x, meanmz = ((minmz + maxmz) / 2)))
+features_list <- map2(
+	features_list, X_list,
 	~add_column(.x, isop_pattern = apply(.y, 2,
 										 function(x) {idx <- which(x > 0); x[idx[1]:idx[length(idx)]]})
 	)
