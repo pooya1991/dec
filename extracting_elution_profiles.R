@@ -36,11 +36,11 @@ features_list <- map2(
 
 # clustering --------------------------------------------------------------
 
-clustering_info_list <- vector("list", length(subX_list))
-for (i in seq_along(subX_list)) {
-	X <- subX_list[[i]]
-	Y <- subY_list[[i]]
-	binbounds <- sub_binbounds_list[[i]]
+clustering_info_list <- vector("list", length(X_list))
+for (i in seq_along(X_list)) {
+	X <- X_list[[i]]
+	Y <- Y_list[[i]]
+	binbounds <- binbounds_list[[i]]
 	mzbins <- rowMeans(binbounds)
 	# idx_nonzero_y <- Y[, 1] > 0
 	# Y <- Y[idx_nonzero_y, , drop = FALSE]
@@ -85,18 +85,18 @@ for (i in seq_along(subX_list)) {
 
 # regression --------------------------------------------------------------
 
-coefs_list <- vector("list", length(subX_list))
-coefs2_list <- vector("list", length(subX_list))
-for (i in seq_along(subX_list)) {
-	X <- subX_list[[i]]
-	Y <- subY_list[[i]]
+coefs_list <- vector("list", length(X_list))
+coefs2_list <- vector("list", length(X_list))
+for (i in seq_along(X_list)) {
+	X <- X_list[[i]]
+	Y <- Y_list[[i]]
 	clustering_info <- clustering_info_list[[i]]
 	coefs <- regressor(X, Y, clustering_info)
 	coefs2_list[[i]] <- coefs2
 	coefs_list[[i]] <- coefs
 }
 
-sub_features_list <- map2(sub_features_list, coefs_list,
+features_list <- map2(features_list, coefs_list,
 						  ~add_column(.x, coef = .y)) %>%
 	map2(coefs2_list, ~add_column(.x, coef2 = .y)) %>%
 	map(~ mutate(.x, anchor =  near(coef, coef2, 1e-5)))
@@ -105,16 +105,16 @@ sub_features_list <- map2(sub_features_list, coefs_list,
 
 if (!dir.exists("./regression_plots")) dir.create("./regression_plots")
 drop_zero_rows <- TRUE
-for (i in seq_along(subX_list)) {
-	X <- subX_list[[i]]
-	Y <- subY_list[[i]]
-	binbounds <- sub_binbounds_list[[i]]
+for (i in seq_along(X_list)) {
+	X <- X_list[[i]]
+	Y <- Y_list[[i]]
+	binbounds <- binbounds_list[[i]]
 	mzbins <- rowMeans(binbounds)
 	idx_nonzero_y <- Y[, 1] > 0
 	Y <- Y[idx_nonzero_y, , drop = FALSE]
 	X <- X[idx_nonzero_y, ]
 	mzbins <- mzbins[idx_nonzero_y]
-	features_info <- sub_features_list[[i]] %>%
+	features_info <- features_list[[i]] %>%
 		select(meanmz, charge) %>%
 		mutate(feature = row_number())
 
@@ -216,12 +216,12 @@ for (i in seq_along(subX_list)) {
 
 # feature construction ----------------------------------------------------
 
-sub_features_list <- map(sub_features_list, filter, coef2 > 0) %>%
+features_list <- map(features_list, filter, coef2 > 0) %>%
 	map(~ mutate(.x, peak = map2(scan, coef, ~list(c(.x, .y))))) %>%
 	map(~ mutate(.x, peak2 = map2(scan, coef2, ~list(c(.x, .y))))) %>%
 	map(select, meanmz, charge, peak = peak2, anchor)
 
-features <- sub_features_list %>%
+features <- features_list %>%
 	bind_rows(.id = "scan") %>%
 	mutate(scan = as.integer(scan)) %>%
 	arrange(scan, meanmz) %>%
@@ -280,7 +280,7 @@ idx_ord <- map(profiles, "meanmz") %>%
 
 profiles <- profiles[idx_ord]
 
-profiles_mat <- matrix(NA_real_, ncol = length(profiles), nrow = length(subX_list))
+profiles_mat <- matrix(NA_real_, ncol = length(profiles), nrow = length(X_list))
 for (i in seq_along(profiles)) {
 	peaks <- profiles[[i]][["peak"]]
 	for (peak in peaks) {
@@ -290,7 +290,7 @@ for (i in seq_along(profiles)) {
 
 # profiles representation -------------------------------------------------
 
-anchors_mat <- matrix(NA, ncol = length(profiles), nrow = length(subX_list))
+anchors_mat <- matrix(NA, ncol = length(profiles), nrow = length(X_list))
 for (i in seq_along(profiles)) {
   scans <- profiles[[i]][["scan"]] + 1
   anchors_mat[scans, i] <- profiles[[i]][["anchor"]]
