@@ -1,3 +1,4 @@
+# install.packages("tidyverse", "glmnet", "igraph", "Metrics", "egg")
 library(tidyverse)
 source("feature_generation_and_clustering.R")
 source("make_averagine_models.R")
@@ -38,10 +39,10 @@ features_list <- map2(
 
 clustering_info_list <- vector("list", length(X_list))
 for (i in seq_along(X_list)) {
-	X <- X_list[[i]]
-	Y <- Y_list[[i]]
+	X <- X_list[[i]] %>% as.matrix()
 	binbounds <- binbounds_list[[i]]
 	mzbins <- rowMeans(binbounds)
+	# Y <- Y_list[[i]] %>% as.vector() %>% as.matrix(ncol = 1)
 	# idx_nonzero_y <- Y[, 1] > 0
 	# Y <- Y[idx_nonzero_y, , drop = FALSE]
 	# X <- X[idx_nonzero_y, ]
@@ -88,8 +89,8 @@ for (i in seq_along(X_list)) {
 coefs_list <- vector("list", length(X_list))
 coefs2_list <- vector("list", length(X_list))
 for (i in seq_along(X_list)) {
-	X <- X_list[[i]]
-	Y <- Y_list[[i]]
+	X <- X_list[[i]] %>% as.matrix()
+	Y <- Y_list[[i]] %>% as.vector() %>% as.matrix(ncol = 1)
 	clustering_info <- clustering_info_list[[i]]
 	coefs <- regressor(X, Y, clustering_info)
 	coefs2_list[[i]] <- coefs2
@@ -106,8 +107,8 @@ features_list <- map2(features_list, coefs_list,
 if (!dir.exists("./regression_plots")) dir.create("./regression_plots")
 drop_zero_rows <- TRUE
 for (i in seq_along(X_list)) {
-	X <- X_list[[i]]
-	Y <- Y_list[[i]]
+	X <- X_list[[i]] %>% as.matrix()
+	Y <- Y_list[[i]] %>% as.vector() %>% as.matrix(ncol = 1)
 	binbounds <- binbounds_list[[i]]
 	mzbins <- rowMeans(binbounds)
 	idx_nonzero_y <- Y[, 1] > 0
@@ -210,27 +211,25 @@ for (i in seq_along(X_list)) {
 		p <- egg::ggarrange(p1, p2, nrow = 1)
 		plot_name <- paste0(i - 1, "_", clust, ".png")
 		ggsave(plot_name, plot = p, path = "./regression_plots", width = 16, height = 8)
-		# browser()
 	}
 }
 
 # feature construction ----------------------------------------------------
 
-features_list <- map(features_list, filter, coef2 > 0) %>%
-	map(~ mutate(.x, peak = map2(scan, coef, ~list(c(.x, .y))))) %>%
-	map(~ mutate(.x, peak2 = map2(scan, coef2, ~list(c(.x, .y))))) %>%
-	map(select, meanmz, charge, peak = peak2, anchor)
-
-features <- features_list %>%
+features <- map(features_list, filter, coef2 > 0) %>%
+	map(select, charge, meanmz, coef2, anchor) %>%
 	bind_rows(.id = "scan") %>%
 	mutate(scan = as.integer(scan)) %>%
 	arrange(scan, meanmz) %>%
-	pmap(list)
+	mutate(peak = map2(scan, coef2, ~ list(c(.x, .y)))) %>%
+	select(-coef2)
 
 # feature alignment -------------------------------------------------------
 
-features_aligned <- list(c(features[[2]], reach = features[[2]][["scan"]] + 12))
-for (feature_curr in features[3:length(features)]) {
+idx_first_anchor <- detect_index(features$anchor, ~.x)
+features <- transpose(features)
+features_aligned <- list(c(features[[idx_first_anchor]], reach = features[[idx_first_anchor]][["scan"]] + 12))
+for (feature_curr in features[(idx_first_anchor + 1):length(features)]) {
 	add_new <- TRUE
 
 	for (i in seq_along(features_aligned)) {
@@ -284,7 +283,7 @@ profiles_mat <- matrix(NA_real_, ncol = length(profiles), nrow = length(X_list))
 for (i in seq_along(profiles)) {
 	peaks <- profiles[[i]][["peak"]]
 	for (peak in peaks) {
-		profiles_mat[as.integer(peak[1]) + 1, i] <- peak[2]
+		profiles_mat[as.integer(peak[1]), i] <- peak[2]
 	}
 }
 
@@ -292,7 +291,7 @@ for (i in seq_along(profiles)) {
 
 anchors_mat <- matrix(NA, ncol = length(profiles), nrow = length(X_list))
 for (i in seq_along(profiles)) {
-  scans <- profiles[[i]][["scan"]] + 1
+  scans <- profiles[[i]][["scan"]]
   anchors_mat[scans, i] <- profiles[[i]][["anchor"]]
 }
 
