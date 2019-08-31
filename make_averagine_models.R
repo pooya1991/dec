@@ -11,7 +11,10 @@ get_elemental_composition <- function(features) {
                acomp = map(aunits, ~ averagine * .x)
         )
 
-    acomp <- map(df$acomp, ~as.integer(round(.x))) %>% do.call(what = rbind)
+    acomp <- df$acomp %>%
+        unlist() %>% round() %>% as.integer() %>%
+        matrix(ncol = 5, byrow = TRUE)
+
     colnames(acomp) <- names(masses)
 
     averagine_mass <- apply(acomp, 1, function(x) sum(x * masses))
