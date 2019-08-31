@@ -10,7 +10,7 @@ source("profile_extraction_functions.R")
 noisetol <- 5e-3
 mass_accuracy <- 6e-6
 maxcharge <- 6L
-ms1_file <- "15c.ms1"
+ms1_file <- "coba_test2.ms1"
 
 # generate features and matrices-------------------------------------------
 
@@ -74,12 +74,10 @@ for (i in seq_along(X_list)) {
 
 	ceb <- igraph::cluster_edge_betweenness(g)
 
-	clustering_info <- stack(ceb) %>%
-		rename(feature = values, cluster = ind) %>%
-		mutate(feature = as.integer(feature)) %>%
+	clustering_info <- tibble(feature = ceb$names, cluster = ceb$membership) %>%
+		mutate_all(as.integer) %>%
 		right_join(X_df[c("mzbin", "feature")], "feature") %>%
-		select(mzbin, feature, cluster) %>%
-		as_tibble()
+		select(mzbin, feature, cluster)
 
 	clustering_info_list[[i]] <- clustering_info
 }
@@ -139,6 +137,8 @@ for (i in seq_along(X_list)) {
 		deconv_mat <- deconv_mat[idx_nonzero_y_hat, ]
 	}
 
+	if (nrow(deconv_mat) == 0) next()
+
 	deconv_long <- as_tibble(deconv_mat) %>%
 		mutate(mzbin = act_pred[, 1]) %>%
 		gather(feature, intensity, -mzbin) %>%
@@ -154,7 +154,7 @@ for (i in seq_along(X_list)) {
 			filter(cluster == clust)
 
 		if (length(mzbins_sub) == 0) next()
-		act_pred_sub <- act_pred[act_pred[, 1] %in% mzbins_sub, ]
+		act_pred_sub <- act_pred[act_pred[, 1] %in% mzbins_sub, , drop = FALSE]
 		rmse_sub <- Metrics::rmse(act_pred_sub[ ,2], act_pred_sub[, 3])
 		mape_sub <- Metrics::mape(act_pred_sub[ ,2], act_pred_sub[, 3])
 		perc_err = ((act_pred_sub[, 2] - act_pred_sub[, 3]) / act_pred_sub[, 2]) * 100
@@ -170,7 +170,7 @@ for (i in seq_along(X_list)) {
 		label <- tibble(
 			mzbin = Inf,
 			intensity = Inf,
-			label = paste0("scan = ", i - 1, " cluster = ", clust)
+			label = paste0("scan = ", " cluster = ", clust)
 		)
 
 		p1 <- tibble(mzbin = act_pred_sub[, 1], intensity = act_pred_sub[, 2], perc_err = perc_err) %>%
@@ -209,7 +209,7 @@ for (i in seq_along(X_list)) {
 				  axis.text.y = element_blank())
 
 		p <- egg::ggarrange(p1, p2, nrow = 1)
-		plot_name <- paste0(i - 1, "_", clust, ".png")
+		plot_name <- paste0(i, "_", clust, ".png")
 		ggsave(plot_name, plot = p, path = "./regression_plots", width = 16, height = 8)
 	}
 }
