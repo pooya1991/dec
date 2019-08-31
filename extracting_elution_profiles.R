@@ -170,7 +170,7 @@ for (i in seq_along(X_list)) {
 		label <- tibble(
 			mzbin = Inf,
 			intensity = Inf,
-			label = paste0("scan = ", " cluster = ", clust)
+			label = paste0("scan = ", i, " cluster = ", clust)
 		)
 
 		p1 <- tibble(mzbin = act_pred_sub[, 1], intensity = act_pred_sub[, 2], perc_err = perc_err) %>%
