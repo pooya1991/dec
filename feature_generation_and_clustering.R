@@ -63,6 +63,21 @@ peaklist_to_clusters <- function(peaks_df, mass_accuracy, .fun = max) {
 	compact(clusters) %>% map(map_at, .at = "intensity", .fun) %>% bind_rows()
 }
 
+peaklist_to_clusters_fast <- function(peaks_df, mass_accuracy, .fun = max) {
+	.fun <- match.fun(.fun)
+	peaks_df %>%
+		arrange(mz) %>%
+		mutate(
+			mz_margin = mz * (1 - mass_accuracy),
+			mz_lag = lag(mz, default = first(mz)),
+			overlap = mz_margin <= mz_lag,
+			id = cumsum(!overlap)
+		) %>%
+		group_by(id) %>%
+		summarise(minmz = min(mz), maxmz = max(mz), intensity = .fun(intensity)) %>%
+		select(minmz, maxmz, intensity)
+}
+
 clusters_to_features <- function(clusters, maxcharge, mass_accuracy) {
 	clusters <- transpose(clusters)
 	features <- vector("list", maxcharge * length(clusters))
@@ -113,6 +128,19 @@ generate_theoretical_clusts <- function(features, isopeaks) {
 	}
 
 	bind_rows(clusts, .id = "id") %>% mutate(id = as.integer(id))
+}
+
+generate_theoretical_clusts_fast <- function(features, isopeaks, maxcharge) {
+	iso_intensities_list <- map(isopeaks, "intensity")
+	const <- (0:maxcharge) * 1.003355
+	n <- nrow(features)
+
+	tibble(
+		id = rep(1:n, each = maxcharge + 1),
+		minmz = pmap(features[c("charge","minmz")], ~ const / .x + .y) %>% unlist(),
+		maxmz = pmap(features[c("charge","maxmz")], ~ const / .x + .y) %>% unlist(),
+		intensity = map(iso_intensities_list, `[`, c(1:(1 + maxcharge))) %>% unlist()
+	)
 }
 
 generate_outputs <- function(clusts_theo, clusts_obs, .fun = sum) {
