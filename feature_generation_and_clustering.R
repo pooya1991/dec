@@ -109,6 +109,42 @@ clusters_to_features <- function(clusters, maxcharge, mass_accuracy) {
 	compact(features) %>% bind_rows()
 }
 
+clusters_to_features_fast <- function(clusters, maxcharge, mass_accuracy) {
+	isop_charges <- maxcharge:1L
+	isops_surplus <- 1.003355 / isop_charges
+	isops_list <- clusters %>%
+		select(minmz, maxmz) %>%
+		pmap(~ list(minmz = .x + isops_surplus,
+					maxmz = .y + isops_surplus,
+					charge = isop_charges)) %>%
+		map(transpose)
+
+	clusters <- transpose(clusters)
+	features <- vector("list", maxcharge * length(clusters))
+	for (i in seq_along(clusters)) {
+		clust_curr <- clusters[[i]]
+		isops <- isops_list[[i]]
+
+		for (isop in isops) {
+
+			for (clust_next in clusters[-1:-i]) {
+				if (clust_next$maxmz * (1 + mass_accuracy) < isop$minmz) next()
+				if (isop$maxmz * (1 + mass_accuracy) < clust_next$minmz) break()
+				# There is a match. Make this feature and add it to a list
+				features[[i * maxcharge - isop$charge + 1]] <- list(
+					charge = isop$charge,
+					minmz  = clust_curr$minmz * (1 - mass_accuracy),
+					maxmz  = clust_curr$maxmz * (1 + mass_accuracy)
+				)
+
+				break()
+			}
+		}
+	}
+
+	compact(features) %>% bind_rows()
+}
+
 generate_theoretical_clusts <- function(features, isopeaks) {
 	features <- transpose(features)
 	clusts <- vector("list", length(features))
