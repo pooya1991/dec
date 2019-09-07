@@ -34,11 +34,16 @@ run_computems1_on_features <- function(features) {
     computems1_file <- ifelse(.Platform$OS.type == "windows", "./ComputeMS1.exe", "./ComputeMS1")
     sfile <- system(paste(computems1_file, ffile), intern = TRUE)
 
-    sfile <- stringr::str_subset(sfile, "^(Sequence|\\d+)")
-    split_sfile <- stringr::str_detect(sfile, "^Sequence") %>% cumsum()
-    peaks_dfs <- split(sfile, split_sfile) %>%
-        map(readr::read_delim, "\t", skip = 1, col_names = c("mz", "intensity"), col_types = "dd") %>%
-        map(filter, intensity >= 0.1)
-
-    map(peaks_dfs, ~ mutate(.x, intensity = intensity / sqrt(sum(intensity ^ 2))))
+    tibble(mz_intensity = stringr::str_subset(sfile, "^(Sequence|\\d+)")) %>%
+        mutate(
+            idx_seq_start = stringr::str_detect(mz_intensity, "^Sequence"),
+            id = cumsum(idx_seq_start)
+            ) %>%
+        filter(!idx_seq_start) %>%
+        tidyr::separate(mz_intensity, into = c("mz", "intensity"), sep = "\t", convert = TRUE) %>%
+        select(id, mz, intensity) %>%
+        filter(intensity >= 0.1) %>%
+        group_by(id) %>%
+        mutate(intensity = intensity / sqrt(sum(intensity ^ 2))) %>%
+        ungroup()
 }

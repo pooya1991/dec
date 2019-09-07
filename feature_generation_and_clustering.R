@@ -150,7 +150,7 @@ clusters_to_features_fast <- function(clusters, maxcharge, mass_accuracy) {
 generate_theoretical_clusts <- function(features, isopeaks) {
 	features <- transpose(features)
 	clusts <- vector("list", length(features))
-	iso_intensities_list <- map(isopeaks, "intensity")
+	iso_intensities_list <- split(isopeaks$intensity, isopeaks$id)
 	i <- 1
 	for (feature in features) {
 		minmzs <- (0:7) * 1.003355 / feature$charge + feature$minmz
@@ -170,7 +170,7 @@ generate_theoretical_clusts <- function(features, isopeaks) {
 
 generate_theoretical_clusts_fast <- function(features, isopeaks) {
 	const <- (0:7) * 1.003355
-	iso_intensities_list <- map(isopeaks, "intensity") %>% map(`[`, c(1:8))
+	iso_intensities_list <- split(isopeaks$intensity, isopeaks$id) %>% map(`[`, c(1:8))
 	features %>%
 		mutate(
 			id = map(1:nrow(features), rep, 8),
